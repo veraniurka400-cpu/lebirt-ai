@@ -1,97 +1,25 @@
 <!doctype html>
 <html lang="es">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#07150f">
-  <title>LEBIRT AI — Roblox Studio Assistant</title>
-  <link rel="stylesheet" href="style.css">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#07150f"><title>LEBIRT AI — Roblox Creation Studio</title><link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="app-shell">
-    <aside class="sidebar" id="sidebar">
-      <div class="brand">
-        <div class="brand-mark">L</div>
-        <div><strong>LEBIRT<span> AI</span></strong><small>ROBLOX CREATION STUDIO</small></div>
-      </div>
-      <button class="new-chat" id="newChat">＋ <span>Nuevo chat</span></button>
-      <div class="side-label">ESPACIO DE TRABAJO</div>
-      <button class="nav-item active">✦ <span>Asistente IA</span></button>
-      <button class="nav-item" id="openSettings">⚙ <span>Configuración</span></button>
-      <div class="side-bottom">
-        <div class="privacy"><span class="privacy-dot"></span><div><b>Modo privado</b><small>Tu clave no se guarda en GitHub</small></div></div>
-        <div class="profile"><div class="avatar">L</div><div><b>Desarrollador</b><small>LEBIRT AI</small></div></div>
-      </div>
-    </aside>
-
-    <main class="main">
-      <header class="topbar">
-        <button class="mobile-menu" id="mobileMenu" aria-label="Abrir menú">☰</button>
-        <div><span class="online-dot"></span><span class="top-status">Asistente listo</span></div>
-        <button class="settings-shortcut" id="openSettingsTop">⚙ Configuración</button>
-      </header>
-
-      <section class="workspace">
-        <div class="welcome" id="welcome">
-          <div class="orb"><span>L</span></div>
-          <div class="eyebrow">TU ASISTENTE DE DESARROLLO ROBLOX</div>
-          <h1>¿Qué vamos a <span>crear</span> hoy?</h1>
-          <p>Describe tu idea. LEBIRT AI te ayudará a construir sistemas, scripts y GUIs para Roblox Studio.</p>
-          <div class="suggestions">
-            <button class="suggestion" data-prompt="Crea un sistema de +1 velocidad por segundo para mi obby, con leaderstats y guardado de datos.">⚡ Sistema de velocidad <small>+1 por segundo para un obby</small></button>
-            <button class="suggestion" data-prompt="Diseña una GUI moderna de tienda para Roblox con botones, tarjetas y animaciones.">▦ Crear una GUI <small>Tienda moderna y animada</small></button>
-            <button class="suggestion" data-prompt="Revisa este código Lua de Roblox, encuentra errores y explícame cómo corregirlos.">⌘ Corregir un script <small>Encontrar y explicar errores</small></button>
-          </div>
-        </div>
-
-        <div class="chat" id="chat" aria-live="polite"></div>
-        <div class="composer-wrap">
-          <div class="attachment-preview" id="attachmentPreview"></div>
-          <form class="composer" id="composer">
-            <label class="attach" title="Adjuntar imagen">＋<input type="file" id="imageInput" accept="image/*" hidden></label>
-            <textarea id="prompt" rows="1" placeholder="Dile a LEBIRT AI qué quieres crear..." required></textarea>
-            <button class="send" id="sendButton" type="submit" aria-label="Enviar">↑</button>
-          </form>
-          <div class="composer-foot"><span>LEBIRT AI puede cometer errores. Prueba los scripts en un proyecto de prueba.</span><span>Hecho para creadores Roblox</span></div>
-        </div>
-      </section>
-    </main>
-  </div>
-
-  <div class="modal-backdrop" id="settingsModal" aria-hidden="true">
-    <section class="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
-      <div class="modal-head"><div><div class="eyebrow">PERSONALIZA TU ASISTENTE</div><h2 id="settingsTitle">Configuración</h2></div><button class="close" id="closeSettings">×</button></div>
-      <div class="field">
-        <label for="provider">Proveedor de IA</label>
-        <select id="provider">
-          <option value="openai">OpenAI / compatible</option>
-          <option value="openrouter">OpenRouter</option>
-          <option value="gemini">Google Gemini</option>
-          <option value="custom">API compatible personalizada</option>
-        </select>
-        <small>Elige el servicio que emitió tu clave.</small>
-      </div>
-      <div class="field" id="endpointField">
-        <label for="endpoint">Dirección API (base URL)</label>
-        <input id="endpoint" type="url" placeholder="https://api.openai.com/v1">
-        <small>Para proveedores compatibles con el formato de chat de OpenAI.</small>
-      </div>
-      <div class="field">
-        <label for="apiKey">API Key</label>
-        <div class="key-row"><input id="apiKey" type="password" autocomplete="off" placeholder="Pega tu clave aquí"><button type="button" id="toggleKey">Ver</button></div>
-        <small>Se guarda solo en este navegador. Nunca la subas a GitHub ni la compartas.</small>
-      </div>
-      <div class="field">
-        <label for="model">Modelo de IA</label>
-        <div class="model-row"><input id="model" list="modelOptions" placeholder="Escribe el ID del modelo"><datalist id="modelOptions"></datalist><button type="button" id="loadModels">Cargar modelos</button></div>
-        <small id="modelHint">Puedes escribir el identificador exacto del modelo de tu proveedor.</small>
-      </div>
-      <div class="notice"><b>Privacidad:</b> la clave se guarda en el almacenamiento local de este navegador. Al enviar un mensaje, se transmite al proveedor elegido. Esta versión conecta directamente desde el navegador; para mayor protección, más adelante conviene usar un servidor privado.</div>
-      <div class="modal-actions"><button class="danger-ghost" id="clearKey">Borrar clave guardada</button><button class="save" id="saveSettings">Guardar configuración</button></div>
-      <div class="settings-status" id="settingsStatus" role="status"></div>
-    </section>
-  </div>
-
-  <script src="script.js"></script>
-</body>
-</html>
+<div class="app-shell">
+<aside class="sidebar" id="sidebar">
+ <div class="brand"><div class="brand-mark">L</div><div><strong>LEBIRT<span> AI</span></strong><small>ROBLOX CREATION STUDIO</small></div></div>
+ <button class="primary wide" id="newChat">＋ Nuevo chat</button>
+ <div class="side-tools"><input id="searchChats" placeholder="⌕ Buscar chats..." aria-label="Buscar chats"><select id="projectFilter" aria-label="Filtrar proyecto"><option value="all">Todos los proyectos</option></select><button class="ghost wide" id="newProject">＋ Nuevo proyecto</button></div>
+ <div class="side-label">TUS CONVERSACIONES</div><div id="chatList" class="chat-list"></div>
+ <div class="side-bottom"><button class="nav-item" id="openAppearance">◐ <span>Apariencia</span></button><button class="nav-item" id="openSettings">⚙ <span>Configuración de IA</span></button><div class="privacy"><span class="privacy-dot"></span><div><b>Modo privado</b><small>La clave no se sube a GitHub</small></div></div><div class="profile"><div class="avatar">L</div><div><b>Desarrollador</b><small>LEBIRT AI</small></div></div></div>
+</aside>
+<main class="main"><header class="topbar"><button class="mobile-menu" id="mobileMenu">☰</button><div><span class="online-dot"></span><span class="top-status">Asistente listo</span></div><div class="top-actions"><button class="ghost" id="voiceToggle" title="Dictar mensaje">🎙 Voz</button><button class="ghost" id="readToggle" title="Activar lectura de respuestas">🔊 Leer</button><button class="ghost" id="openAppearanceTop">◐</button><button class="ghost" id="openSettingsTop">⚙</button></div></header>
+<section class="workspace"><div class="welcome" id="welcome"><div class="orb"><span>L</span></div><div class="eyebrow">TU ASISTENTE DE DESARROLLO ROBLOX</div><h1>¿Qué vamos a <span>crear</span> hoy?</h1><p>Describe tu idea, comparte una imagen o dicta tu mensaje. LEBIRT AI te ayuda con Roblox Studio Lite.</p><div class="suggestions"><button class="suggestion" data-prompt="Crea un sistema de +1 velocidad por segundo para mi obby, con leaderstats y guardado de datos.">⚡ Sistema de velocidad<small>+1 por segundo para un obby</small></button><button class="suggestion" data-prompt="Diseña una GUI moderna de tienda para Roblox con botones, tarjetas y animaciones.">▦ Crear una GUI<small>Tienda moderna y animada</small></button><button class="suggestion" data-prompt="Revisa este código Lua de Roblox, encuentra errores y explícame cómo corregirlos.">⌘ Corregir un script<small>Encontrar y explicar errores</small></button></div></div>
+<div class="chat" id="chat" aria-live="polite"></div><div class="composer-wrap"><div id="attachmentPreview" class="attachment-preview"></div><form class="composer" id="composer"><label class="attach" title="Adjuntar imagen">＋<input type="file" id="imageInput" accept="image/png,image/jpeg,image/webp" hidden></label><textarea id="prompt" rows="1" placeholder="Dile a LEBIRT AI qué quieres crear..." required></textarea><button class="mic-inline" id="micButton" type="button" title="Dictar">🎙</button><button class="mic-inline" id="imageGenButton" type="button" title="Crear imagen">🎨</button><button class="send" id="sendButton" type="submit">↑</button></form><div class="composer-foot"><span>Los scripts se entregan para copiar; no se instalan automáticamente en Roblox Studio.</span><span>LEBIRT AI V2</span></div></div></section></main></div>
+<div class="modal-backdrop" id="settingsModal"><section class="modal"><div class="modal-head"><div><div class="eyebrow">CONEXIÓN</div><h2>Configuración de IA</h2></div><button class="close" data-close="settingsModal">×</button></div>
+<div class="field"><label for="provider">Proveedor</label><select id="provider"><option value="openai">OpenAI / compatible</option><option value="openrouter">OpenRouter</option><option value="gemini">Google Gemini</option><option value="custom">API compatible personalizada</option></select></div>
+<div class="field"><label for="endpoint">Dirección API (base URL)</label><input id="endpoint" type="url"></div><div class="field"><label for="apiKey">API Key</label><div class="key-row"><input id="apiKey" type="password" autocomplete="off" placeholder="Clave privada"><button type="button" id="toggleKey">Ver</button></div><small>Se guarda en este navegador. Para una web pública recomendamos un servidor privado.</small></div>
+<div class="field"><label for="model">Modelo de chat</label><div class="model-row"><input id="model" list="modelOptions"><datalist id="modelOptions"></datalist><button type="button" id="loadModels">Cargar modelos</button></div></div>
+<div class="field"><label for="imageModel">Modelo de generación de imágenes (Gemini)</label><input id="imageModel" value="gemini-3.1-flash-image"><small>La generación de imágenes puede requerir facturación y disponibilidad específica en Google AI Studio.</small></div><div class="notice">La clave se utiliza desde el navegador en esta versión. No la compartas ni la publiques en GitHub.</div><div class="modal-actions"><button class="ghost" id="clearKey">Borrar clave</button><button class="primary" id="saveSettings">Guardar</button></div><div id="settingsStatus" class="status"></div></section></div>
+<div class="modal-backdrop" id="appearanceModal"><section class="modal"><div class="modal-head"><div><div class="eyebrow">PERSONALIZA LEBIRT</div><h2>Apariencia</h2></div><button class="close" data-close="appearanceModal">×</button></div><div class="field"><label for="accentColor">Color principal</label><input id="accentColor" type="color" value="#20c77a"></div><div class="field"><label for="backgroundColor">Fondo</label><input id="backgroundColor" type="color" value="#07150f"></div><div class="field"><label class="check"><input id="animations" type="checkbox" checked> Animaciones suaves</label></div><div class="modal-actions"><button class="ghost" id="resetAppearance">Restablecer</button><button class="primary" id="saveAppearance">Aplicar cambios</button></div></section></div>
+<div class="modal-backdrop" id="projectModal"><section class="modal"><div class="modal-head"><h2>Nuevo proyecto</h2><button class="close" data-close="projectModal">×</button></div><div class="field"><label for="projectName">Nombre del proyecto</label><input id="projectName" placeholder="Ej. Escapa del obby"></div><div class="modal-actions"><button class="primary" id="createProject">Crear proyecto</button></div></section></div>
+<script src="script.js"></script></body></html>

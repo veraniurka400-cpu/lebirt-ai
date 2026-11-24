@@ -1,140 +1,42 @@
-const $ = (id) => document.getElementById(id);
-const STORAGE_KEY = "lebirt_ai_settings_v1";
-const defaults = { provider:"openai", endpoint:"https://api.openai.com/v1", apiKey:"", model:"" };
-let settings = {...defaults};
-let selectedImage = null;
-let busy = false;
-
-const providerDefaults = {
-  openai: {endpoint:"https://api.openai.com/v1", model:"gpt-4o-mini"},
-  openrouter: {endpoint:"https://openrouter.ai/api/v1", model:"openai/gpt-4o-mini"},
-  gemini: {endpoint:"https://generativelanguage.googleapis.com/v1beta/openai", model:"gemini-2.0-flash"},
-  custom: {endpoint:"", model:""}
-};
-
-function loadSettings(){
-  try { settings = {...defaults, ...JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}")}; }
-  catch { settings = {...defaults}; }
-  $("provider").value = settings.provider;
-  $("endpoint").value = settings.endpoint;
-  $("apiKey").value = settings.apiKey;
-  $("model").value = settings.model;
-  updateProviderHint();
-}
-function saveSettings(){
-  settings = {
-    provider:$("provider").value,
-    endpoint:$("endpoint").value.trim().replace(/\/+$/,""),
-    apiKey:$("apiKey").value.trim(),
-    model:$("model").value.trim()
-  };
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-    $("settingsStatus").textContent = "Configuración guardada en este navegador.";
-  } catch {
-    $("settingsStatus").textContent = "No se pudo guardar. Revisa la configuración de almacenamiento del navegador.";
-  }
-}
-function updateProviderHint(){
-  const p = $("provider").value;
-  $("endpoint").value = providerDefaults[p].endpoint;
-  $("model").value = providerDefaults[p].model;
-  $("modelHint").textContent = p === "gemini"
-    ? "Se usa el endpoint compatible con OpenAI de Gemini. Escribe un modelo disponible en tu cuenta."
-    : "Puedes escribir el identificador exacto del modelo de tu proveedor.";
-}
-function openSettings(){ $("settingsModal").classList.add("open"); $("settingsModal").setAttribute("aria-hidden","false"); }
-function closeSettings(){ $("settingsModal").classList.remove("open"); $("settingsModal").setAttribute("aria-hidden","true"); }
-function showChat(){ $("welcome").style.display="none"; $("chat").style.display="flex"; }
-function addMessage(role,text,imageUrl){
-  const row=document.createElement("div"); row.className=`message ${role}`;
-  if(role==="assistant"){const av=document.createElement("div");av.className="mini-avatar";av.textContent="L";row.append(av);}
-  const bubble=document.createElement("div");bubble.className="bubble";bubble.textContent=text;
-  if(imageUrl){const img=document.createElement("img");img.src=imageUrl;img.alt="Imagen adjunta";bubble.append(document.createElement("br"),img);}
-  row.append(bubble);$("chat").append(row);row.scrollIntoView({behavior:"smooth",block:"end"});
-  return bubble;
-}
-function setBusy(value){busy=value;$("sendButton").disabled=value;$("sendButton").textContent=value?"…":"↑";}
-function resizePrompt(){$("prompt").style.height="auto";$("prompt").style.height=Math.min($("prompt").scrollHeight,150)+"px";}
-function dataUrlToBase64(dataUrl){return dataUrl.split(",")[1] || "";}
-async function loadModels(){
-  saveSettings();
-  if(!settings.apiKey){$("settingsStatus").textContent="Primero introduce tu API Key.";return;}
-  if(settings.provider==="gemini"){ $("settingsStatus").textContent="Escribe un ID de modelo Gemini compatible en el campo Modelo."; return; }
-  try{
-    const res=await fetch(settings.endpoint+"/models",{headers:{Authorization:"Bearer "+settings.apiKey}});
-    if(!res.ok) throw new Error("El proveedor no permitió consultar modelos ("+res.status+").");
-    const data=await res.json();
-    const models=(data.data||data.models||[]).map(x=>x.id||x.name).filter(Boolean);
-    $("modelOptions").innerHTML="";
-    models.forEach(name=>{const opt=document.createElement("option");opt.value=name;$("modelOptions").append(opt);});
-    $("settingsStatus").textContent=models.length?`Se encontraron ${models.length} modelos.`:"No se encontraron modelos. Puedes escribir el ID manualmente.";
-  }catch(err){$("settingsStatus").textContent=err.message+" También puedes escribir el modelo manualmente.";}
-}
-async function callOpenAICompatible(messages){
-  const body={model:settings.model,messages,temperature:0.4};
-  const res=await fetch(settings.endpoint+"/chat/completions",{
-    method:"POST",
-    headers:{"Content-Type":"application/json","Authorization":"Bearer "+settings.apiKey},
-    body:JSON.stringify(body)
-  });
-  const data=await res.json().catch(()=>({}));
-  if(!res.ok) throw new Error(data.error?.message || data.message || `Error de API: ${res.status}`);
-  return data.choices?.[0]?.message?.content || "La API respondió, pero no devolvió texto.";
-}
-async function callGemini(messages){
-  const endpoint=settings.endpoint+"/chat/completions";
-  return callOpenAICompatible(messages); // Gemini OpenAI-compatible endpoint
-}
-async function sendPrompt(prompt){
-  if(busy)return;
-  if(!settings.apiKey || !settings.endpoint || !settings.model){
-    addMessage("assistant","Antes de empezar, abre Configuración y añade tu API Key, proveedor y modelo. La clave es necesaria para conectar la IA.");
-    openSettings();return;
-  }
-  showChat();
-  let imageUrl=null;
-  if(selectedImage){imageUrl=URL.createObjectURL(selectedImage);}
-  addMessage("user",prompt,imageUrl);
-  const thinking=addMessage("assistant","LEBIRT AI está preparando tu respuesta…");
-  setBusy(true);
-  const system = `Eres LEBIRT AI, un asistente experto en desarrollo de Roblox Studio y Luau. Responde en español claro. Ayuda a diseñar sistemas, Scripts, LocalScripts, ModuleScripts y GUIs. Cuando generes código, indica exactamente dónde colocar cada script, qué objetos/RemoteEvents crear y entrega código completo. Prioriza seguridad del servidor: valida las acciones en el servidor y nunca confíes en el cliente. No afirmes que puedes editar Studio Lite directamente; entrega instrucciones y código que el usuario pueda colocar. Si falta información esencial, pregunta solo lo necesario.`;
-  try{
-    let userContent=prompt;
-    if(selectedImage){
-      userContent += "\n\nEl usuario adjuntó una imagen. En esta primera versión, la imagen se adjunta a la conversación visualmente, pero el envío de imágenes a la API todavía no está implementado. Pide una descripción si es necesaria.";
-    }
-    const answer = settings.provider==="gemini"
-      ? await callGemini([{role:"system",content:system},{role:"user",content:userContent}])
-      : await callOpenAICompatible([{role:"system",content:system},{role:"user",content:userContent}]);
-    thinking.textContent=answer;
-  }catch(err){
-    thinking.textContent="No pude conectar con la IA.\n\n"+err.message+"\n\nRevisa tu API Key, el modelo, la dirección API y si el proveedor permite solicitudes desde el navegador (CORS).";
-  }finally{
-    setBusy(false);
-    if(imageUrl) URL.revokeObjectURL(imageUrl);
-    selectedImage=null;$("imageInput").value="";$("attachmentPreview").textContent="";
-  }
-}
-
-$("openSettings").onclick=openSettings;$("openSettingsTop").onclick=openSettings;
-$("closeSettings").onclick=closeSettings;
-$("settingsModal").addEventListener("click",e=>{if(e.target===$("settingsModal"))closeSettings();});
-$("provider").addEventListener("change",updateProviderHint);
-$("saveSettings").onclick=()=>{saveSettings();};
-$("loadModels").onclick=loadModels;
-$("toggleKey").onclick=()=>{const input=$("apiKey");input.type=input.type==="password"?"text":"password";$("toggleKey").textContent=input.type==="password"?"Ver":"Ocultar";};
-$("clearKey").onclick=()=>{$("apiKey").value="";settings.apiKey="";saveSettings();$("settingsStatus").textContent="Clave eliminada de este navegador.";};
-$("newChat").onclick=()=>{$("chat").innerHTML="";$("chat").style.display="none";$("welcome").style.display="block";$("prompt").value="";resizePrompt();};
-$("mobileMenu").onclick=()=>$("sidebar").classList.toggle("show");
-document.querySelectorAll(".suggestion").forEach(btn=>btn.addEventListener("click",()=>{$("prompt").value=btn.dataset.prompt;resizePrompt();$("prompt").focus();}));
-$("prompt").addEventListener("input",resizePrompt);
-$("imageInput").addEventListener("change",e=>{
-  selectedImage=e.target.files[0]||null;
-  $("attachmentPreview").textContent=selectedImage?`Imagen seleccionada: ${selectedImage.name} (vista previa; envío visual aún no habilitado)`:"";
-});
-$("composer").addEventListener("submit",async e=>{
-  e.preventDefault();const prompt=$("prompt").value.trim();if(!prompt)return;
-  $("prompt").value="";resizePrompt();await sendPrompt(prompt);
-});
-loadSettings();
+const $=id=>document.getElementById(id);
+const SETTINGS_KEY='lebirt_ai_settings_v1', CHATS_KEY='lebirt_ai_chats_v2', PROJECTS_KEY='lebirt_ai_projects_v2', APPEAR_KEY='lebirt_ai_appearance_v2';
+const defaults={provider:'gemini',endpoint:'https://generativelanguage.googleapis.com/v1beta/openai',apiKey:'',model:'gemini-2.5-flash',imageModel:'gemini-3.1-flash-image'};
+const providerDefaults={openai:{endpoint:'https://api.openai.com/v1',model:'gpt-4o-mini'},openrouter:{endpoint:'https://openrouter.ai/api/v1',model:'openai/gpt-4o-mini'},gemini:{endpoint:'https://generativelanguage.googleapis.com/v1beta/openai',model:'gemini-2.5-flash'},custom:{endpoint:'',model:''}};
+let settings={...defaults},chats=[],projects=['General'],activeChat=null,selectedImage=null,busy=false,readAnswers=false,recognition=null;
+function loadAll(){try{settings={...defaults,...JSON.parse(localStorage.getItem(SETTINGS_KEY)||'{}')}}catch{}try{chats=JSON.parse(localStorage.getItem(CHATS_KEY)||'[]')}catch{chats=[]}try{projects=JSON.parse(localStorage.getItem(PROJECTS_KEY)||'["General"]')}catch{projects=['General']}if(!projects.length)projects=['General'];$('provider').value=settings.provider;$('endpoint').value=settings.endpoint;$('apiKey').value=settings.apiKey;$('model').value=settings.model;$('imageModel').value=settings.imageModel;renderProjects();renderChatList();loadAppearance();if(chats.length)openChat(chats[0].id);else newChat(false)}
+function saveSettings(){settings={provider:$('provider').value,endpoint:$('endpoint').value.trim().replace(/\/+$/,''),apiKey:$('apiKey').value.trim(),model:$('model').value.trim(),imageModel:$('imageModel').value.trim()};localStorage.setItem(SETTINGS_KEY,JSON.stringify(settings));$('settingsStatus').textContent='Configuración guardada en este navegador.'}
+function updateProvider(){const p=$('provider').value;$('endpoint').value=providerDefaults[p].endpoint;$('model').value=providerDefaults[p].model}
+function modal(id,open=true){$(id).classList.toggle('open',open)}
+function showChat(){ $('welcome').style.display='none';$('chat').style.display='flex' }
+function makeId(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
+function persistChats(){localStorage.setItem(CHATS_KEY,JSON.stringify(chats.map(c=>({...c,messages:c.messages.map(({imageData,...m})=>m)}))));renderChatList()}
+function newChat(focus=true){const chosen=$('projectFilter')?.value;const c={id:makeId(),title:'Nuevo chat',project:chosen&&chosen!=='all'?chosen:projects[0],messages:[],updated:Date.now()};chats.unshift(c);activeChat=c.id;persistChats();renderMessages();if(focus){$('welcome').style.display='block';$('chat').style.display='none';$('prompt').focus()}}
+function currentChat(){return chats.find(c=>c.id===activeChat)}
+function openChat(id){activeChat=id;renderMessages();renderChatList();$('welcome').style.display=currentChat()?.messages.length?'none':'block';$('chat').style.display=currentChat()?.messages.length?'flex':'none';if(window.innerWidth<760)$('sidebar').classList.remove('show')}
+function renderProjects(){const sel=$('projectFilter');sel.innerHTML='<option value="all">Todos los proyectos</option>'+projects.map(p=>`<option value="${escapeAttr(p)}">${escapeHtml(p)}</option>`).join('')}
+function renderChatList(){const q=$('searchChats').value.toLowerCase(),filter=$('projectFilter').value;$('chatList').innerHTML='';chats.filter(c=>(filter==='all'||c.project===filter)&&c.title.toLowerCase().includes(q)).forEach(c=>{const row=document.createElement('div');row.className='chat-entry';const b=document.createElement('button');b.textContent='▤ '+c.title;b.className=c.id===activeChat?'active':'';b.onclick=()=>openChat(c.id);const d=document.createElement('button');d.className='delete-chat';d.textContent='×';d.title='Eliminar chat';d.onclick=()=>{if(confirm('¿Eliminar esta conversación?')){chats=chats.filter(x=>x.id!==c.id);if(activeChat===c.id)activeChat=null;persistChats();if(!activeChat&&chats[0])openChat(chats[0].id);else if(!activeChat)newChat(false)}};row.append(b,d);$('chatList').append(row)})}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}function escapeAttr(s){return escapeHtml(s)}
+function renderTextWithCode(container,text){const re=/```([\w+-]*)\n?([\s\S]*?)```/g;let last=0,m;while((m=re.exec(text))){if(m.index>last)addPlain(container,text.slice(last,m.index));const codeText=m[2];const wrap=document.createElement('div');wrap.className='code-wrap';const head=document.createElement('div');head.className='code-head';const lang=document.createElement('span');lang.textContent=(m[1]||'código').toUpperCase();const copy=document.createElement('button');copy.className='copy-code';copy.textContent='Copiar código';copy.onclick=async()=>{try{await navigator.clipboard.writeText(codeText);copy.textContent='¡Copiado!';setTimeout(()=>copy.textContent='Copiar código',1300)}catch{const ta=document.createElement('textarea');ta.value=codeText;document.body.append(ta);ta.select();document.execCommand('copy');ta.remove();copy.textContent='¡Copiado!'}};head.append(lang,copy);const pre=document.createElement('pre'),code=document.createElement('code');code.textContent=m[2];pre.append(code);wrap.append(head,pre);container.append(wrap);last=re.lastIndex}if(last<text.length)addPlain(container,text.slice(last))}
+function addPlain(container,text){const p=document.createElement('p');p.textContent=text;container.append(p)}
+function renderMessages(){const c=currentChat();$('chat').innerHTML='';if(!c||!c.messages.length)return;showChat();c.messages.forEach(m=>renderMessage(m,false));$('chat').scrollTop=$('chat').scrollHeight}
+function renderMessage(m,scroll=true){const row=document.createElement('div');row.className='message '+m.role;if(m.role==='assistant'){const av=document.createElement('div');av.className='mini-avatar';av.textContent='L';row.append(av)}const bubble=document.createElement('div');bubble.className='bubble';renderTextWithCode(bubble,m.text);if(m.imageData){const img=document.createElement('img');img.src=m.imageData;img.alt='Imagen adjunta';bubble.append(img)}row.append(bubble);$('chat').append(row);if(scroll)row.scrollIntoView({behavior:'smooth',block:'end'});return bubble}
+function addStoredMessage(role,text,imageData){const c=currentChat();const m={role,text,imageData:imageData||null};c.messages.push(m);c.updated=Date.now();if(c.title==='Nuevo chat'&&role==='user')c.title=text.slice(0,32)+(text.length>32?'…':'');persistChats();renderMessage(m);return m}
+function resizePrompt(){$('prompt').style.height='auto';$('prompt').style.height=Math.min($('prompt').scrollHeight,150)+'px'}
+function setBusy(v){busy=v;$('sendButton').disabled=v;$('sendButton').textContent=v?'…':'↑'}
+function fileToDataURL(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.onerror=reject;r.readAsDataURL(file)})}
+function dataParts(dataUrl){const [meta,data]=dataUrl.split(',');return {mimeType:meta.match(/data:(.*?);/)?.[1]||'image/jpeg',data}}
+async function geminiNative(prompt,imageData,model=settings.model,responseModalities){const parts=[{text:prompt}];if(imageData){const d=dataParts(imageData);parts.push({inline_data:{mime_type:d.mimeType,data:d.data}})}const body={contents:[{role:'user',parts}],generationConfig:{temperature:.4}};if(responseModalities)body.generationConfig.responseModalities=responseModalities;const url=`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;for(let attempt=0;;attempt++){const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':settings.apiKey},body:JSON.stringify(body)});const data=await res.json().catch(()=>({}));if(res.ok)return data;if(res.status===503&&attempt<2){await new Promise(r=>setTimeout(r,1200*Math.pow(2,attempt)));continue}throw new Error(data.error?.message||`Error de Gemini: ${res.status}`)}}
+async function compatible(messages,retry=true){const url=settings.endpoint+'/chat/completions';for(let attempt=0;;attempt++){const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+settings.apiKey},body:JSON.stringify({model:settings.model,messages,temperature:.4})});const data=await res.json().catch(()=>({}));if(res.ok)return data.choices?.[0]?.message?.content||'La API no devolvió texto.';if(res.status===503&&retry&&attempt<2){await new Promise(r=>setTimeout(r,1200*Math.pow(2,attempt)));continue}throw new Error(data.error?.message||`Error de API: ${res.status}`)}}
+async function askAI(prompt,imageData){if(imageData&&settings.provider!=='gemini')throw new Error('El análisis de imágenes está habilitado con Google Gemini en esta versión. Selecciona Gemini en Configuración.');const sys='Eres LEBIRT AI, asistente experto en Roblox Studio Lite y Luau. Responde en español claro. Cuando crees scripts, entrega código completo en bloques Markdown con lenguaje lua y un botón de copiar (la web lo añadirá), indica dónde colocar cada script y qué objetos crear. No afirmes que puedes instalar cosas directamente en Studio Lite. Valida acciones en servidor y no confíes en el cliente. Si el usuario pide un script, hazlo copiable para pegar manualmente.';if(settings.provider==='gemini'&&imageData){const data=await geminiNative(sys+'\n\n'+prompt,imageData);return data.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('')||'Gemini no devolvió texto.'}return compatible([{role:'system',content:sys},{role:'user',content:prompt+(imageData?'\n\n[El usuario adjuntó una imagen para analizar.]':'')}])}
+async function sendPrompt(text){if(busy)return;if(!settings.apiKey||!settings.endpoint||!settings.model){addStoredMessage('assistant','Abre Configuración de IA y añade tu proveedor, modelo y API Key.');modal('settingsModal');return}if(!currentChat())newChat(false);showChat();let imageData=null;if(selectedImage){if(selectedImage.size>8*1024*1024){alert('La imagen pesa más de 8 MB. Elige una más pequeña.');return}imageData=await fileToDataURL(selectedImage)}addStoredMessage('user',text,imageData);$('prompt').value='';resizePrompt();selectedImage=null;$('imageInput').value='';$('attachmentPreview').textContent='';setBusy(true);const pending=addStoredMessage('assistant','LEBIRT AI está pensando…');const c=currentChat();try{const answer=await askAI(text,imageData);pending.text=answer;persistChats();renderMessages();if(readAnswers)speak(answer)}catch(err){pending.text='No pude completar la solicitud.\n\n'+err.message+'\n\nSi aparece 503, el servicio puede estar ocupado. Puedes volver a intentarlo.';persistChats();renderMessages()}finally{setBusy(false)}}
+async function generateImage(prompt){if(settings.provider!=='gemini'){alert('La generación de imágenes está configurada en esta versión para Google Gemini.');return}if(!settings.apiKey){modal('settingsModal');return}setBusy(true);addStoredMessage('user','🎨 Genera una imagen: '+prompt);const wait=addStoredMessage('assistant','Creando imagen…');try{const data=await geminiNative(prompt,null,settings.imageModel,['IMAGE']);const part=data.candidates?.[0]?.content?.parts?.find(p=>p.inline_data||p.inlineData);if(!part)throw new Error('El modelo no devolvió una imagen. Comprueba disponibilidad y facturación del modelo.');const x=part.inline_data||part.inlineData;const mime=x.mime_type||x.mimeType||'image/png';const url=`data:${mime};base64,${x.data}`;wait.text='¡Imagen creada!';wait.imageData=url;persistChats();renderMessages()}catch(e){wait.text='No pude generar la imagen. '+e.message;persistChats();renderMessages()}finally{setBusy(false)}}
+async function loadModels(){saveSettings();if(!settings.apiKey){$('settingsStatus').textContent='Primero añade tu API Key.';return}try{let url=settings.endpoint+'/models';let headers={Authorization:'Bearer '+settings.apiKey};if(settings.provider==='gemini'){url='https://generativelanguage.googleapis.com/v1beta/models';headers={'x-goog-api-key':settings.apiKey}}const res=await fetch(url,{headers});const data=await res.json();if(!res.ok)throw new Error(data.error?.message||'No se pudieron cargar los modelos ('+res.status+')');const list=(data.data||data.models||[]).map(x=>x.id||x.name?.replace('models/','')).filter(Boolean);$('modelOptions').innerHTML='';list.forEach(n=>{const o=document.createElement('option');o.value=n;$('modelOptions').append(o)});$('settingsStatus').textContent=`Se encontraron ${list.length} modelos. Elige uno en el campo.`}catch(e){$('settingsStatus').textContent=e.message}}
+function speak(text){if(!('speechSynthesis'in window))return;window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text.replace(/```[\s\S]*?```/g,'Bloque de código omitido.'));u.lang='es-ES';window.speechSynthesis.speak(u)}
+function startVoice(){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){alert('Tu navegador no admite dictado por voz. Puedes usar el teclado del móvil.');return}if(recognition){recognition.stop();recognition=null;$('voiceToggle').textContent='🎙 Voz';return}recognition=new SR();recognition.lang='es-ES';recognition.interimResults=false;recognition.onresult=e=>{$('prompt').value+=( $('prompt').value?' ':'')+e.results[0][0].transcript;resizePrompt()};recognition.onerror=()=>{recognition=null;$('voiceToggle').textContent='🎙 Voz'};recognition.onend=()=>{recognition=null;$('voiceToggle').textContent='🎙 Voz'};recognition.start();$('voiceToggle').textContent='⏹ Detener'}
+function applyAppearance(a){document.documentElement.style.setProperty('--accent',a.accent||'#20c77a');document.documentElement.style.setProperty('--bg',a.bg||'#07150f');document.body.classList.toggle('no-animations',a.animations===false);document.documentElement.style.setProperty('--panel',a.panel||'#0d2118')}
+function loadAppearance(){try{const a=JSON.parse(localStorage.getItem(APPEAR_KEY)||'{}');$('accentColor').value=a.accent||'#20c77a';$('backgroundColor').value=a.bg||'#07150f';$('animations').checked=a.animations!==false;applyAppearance(a)}catch{}}
+function saveAppearance(){const a={accent:$('accentColor').value,bg:$('backgroundColor').value,animations:$('animations').checked};localStorage.setItem(APPEAR_KEY,JSON.stringify(a));applyAppearance(a);modal('appearanceModal',false)}
+$('newChat').onclick=()=>newChat();$('newProject').onclick=()=>modal('projectModal');$('createProject').onclick=()=>{const n=$('projectName').value.trim();if(n&&!projects.includes(n)){projects.push(n);localStorage.setItem(PROJECTS_KEY,JSON.stringify(projects));renderProjects();$('projectFilter').value=n;modal('projectModal',false);$('projectName').value=''}};$('searchChats').oninput=renderChatList;$('projectFilter').onchange=renderChatList;
+$('openSettings').onclick=$('openSettingsTop').onclick=()=>modal('settingsModal');$('openAppearance').onclick=$('openAppearanceTop').onclick=()=>modal('appearanceModal');document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>modal(b.dataset.close,false));document.querySelectorAll('.modal-backdrop').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)modal(m.id,false)}));$('provider').onchange=updateProvider;$('saveSettings').onclick=saveSettings;$('loadModels').onclick=loadModels;$('toggleKey').onclick=()=>{$('apiKey').type=$('apiKey').type==='password'?'text':'password';$('toggleKey').textContent=$('apiKey').type==='password'?'Ver':'Ocultar'};$('clearKey').onclick=()=>{$('apiKey').value='';saveSettings();$('settingsStatus').textContent='Clave borrada del navegador.'};$('saveAppearance').onclick=saveAppearance;$('resetAppearance').onclick=()=>{localStorage.removeItem(APPEAR_KEY);$('accentColor').value='#20c77a';$('backgroundColor').value='#07150f';$('animations').checked=true;applyAppearance({})};$('mobileMenu').onclick=()=>$('sidebar').classList.toggle('show');$('voiceToggle').onclick=$('micButton').onclick=startVoice;$('imageGenButton').onclick=()=>{$('prompt').value='/imagen ';resizePrompt();$('prompt').focus()};$('readToggle').onclick=()=>{readAnswers=!readAnswers;$('readToggle').textContent=readAnswers?'🔊 Lectura ON':'🔊 Leer'};
+document.querySelectorAll('.suggestion').forEach(b=>b.onclick=()=>{$('prompt').value=b.dataset.prompt;resizePrompt();$('prompt').focus()});$('prompt').addEventListener('input',resizePrompt);$('imageInput').onchange=async e=>{selectedImage=e.target.files[0]||null;$('attachmentPreview').textContent=selectedImage?'Imagen lista: '+selectedImage.name:''};$('composer').onsubmit=async e=>{e.preventDefault();const text=$('prompt').value.trim();if(!text&&!selectedImage)return;if(/^\/imagen\s+/i.test(text)){await generateImage(text.replace(/^\/imagen\s+/i,''));$('prompt').value='';return}await sendPrompt(text||'Analiza esta imagen y descríbeme lo que ves.')};
+loadAll();
